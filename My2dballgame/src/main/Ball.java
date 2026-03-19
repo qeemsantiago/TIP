@@ -8,7 +8,7 @@ public class Ball {
     private int x;
     private int y;
     private final int SIZE = 20;
-    private final int SPEED = 4;
+    private final int SPEED = 7;
     private Random random = new Random();
 
     public Ball() {
