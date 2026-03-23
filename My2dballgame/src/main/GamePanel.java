@@ -26,6 +26,11 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
  // Two separate managers so they don't fight for the same speaker
     SoundManager music = new SoundManager();
     SoundManager sfx = new SoundManager();
+    
+ // array sorted:
+    int level = 1;
+    int[] scoreHistory = new int[5]; // Array to be sorted
+    boolean sortingTaskActive = false;
 
     public GamePanel() {
         this.setPreferredSize(new Dimension(500, 400));
@@ -46,19 +51,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     }
 
     private void restartGame() {
+        // Reset all game progress
         score = 0;
+        level = 1;              // Reset to Level 1
         timeLeft = 30;
         frameCounter = 0;
+        
         gameOver = false;
         gameWon = false;
         gameStarted = true; 
+        
         ball.reset();
         bomb.reset();
         player.leftPressed = false;
         player.rightPressed = false;
-        
-     // --- ADD THIS LINE TO RESTART MUSIC ---
-        playMusic(0);
+
+        // Check if music is already playing; if not, start it.
+        // This prevents the music from "restarting" from the beginning 
+        // and creates a seamless loop.
+        playMusic(0); 
+
         timer.start();
         repaint();
     }
@@ -101,10 +113,22 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
 
         // --- 2. GAME OVER / WIN SCREENS ---
         if (gameWon) {
-            drawCenteredString(g2, "MISSION SUCCESS!", new Font("Segoe UI", Font.BOLD, 48), new Color(46, 204, 113), 200);
-            drawCenteredString(g2, "Score: " + score, new Font("Segoe UI", Font.PLAIN, 24), Color.WHITE, 260);
+            g2.setColor(new Color(46, 204, 113)); // Success Green
+            drawCenteredString(g2, "TASK WON!", new Font("Segoe UI", Font.BOLD, 60), g2.getColor(), 180);
+            drawCenteredString(g2, "Level 3 Sorting Complete", new Font("Segoe UI", Font.PLAIN, 20), Color.WHITE, 240);
+            drawCenteredString(g2, "Final Sorted Scores:", new Font("Segoe UI", Font.ITALIC, 18), Color.LIGHT_GRAY, 280);
+            
+            // Display the sorted array on screen
+            String arrayStr = "";
+            for(int s : scoreHistory) arrayStr += s + "  ";
+            drawCenteredString(g2, arrayStr, new Font("Monospaced", Font.BOLD, 22), Color.CYAN, 320);
             return;
         }
+
+        // Add Level Display to HUD
+        g2.setColor(Color.YELLOW);
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        g2.drawString("LEVEL: " + level, 20, 80);
         
         if (gameOver) {
             // Large Red Title
@@ -140,7 +164,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         ball.draw(g2);
         bomb.draw(g2);
     }
-
+    
     private void drawCenteredString(Graphics g, String text, Font font, Color color, int y) {
         FontMetrics metrics = g.getFontMetrics(font);
         int x = (getWidth() - metrics.stringWidth(text)) / 2;
@@ -172,6 +196,17 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
                 }
                 timer.stop();
             }
+            
+            if (ball.checkCollision(player)) {
+                score++;
+                playSE(1);
+                ball.reset();
+
+                // Trigger Sorting Task/Level Up every 10 points
+                if (score >= 10) {
+                    performSortingTask();
+                }
+            }
 
          // CATCHING THE BALL
             if (ball.checkCollision(player)) {
@@ -184,8 +219,9 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             if (bomb.checkCollision(player)) {
                 gameOver = true;
                 timer.stop();
-                stopMusic(); // We stop music here because the game is over
-                playSE(2);   // Play explosion
+                
+                // stopMusic(); <-- REMOVE OR COMMENT THIS OUT
+                playSE(2); // Only play the explosion sound
             }
 
             if (ball.getY() > getHeight()) ball.reset();
@@ -194,6 +230,43 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         repaint();
     }
 
+    
+    
+    public void performSortingTask() {
+        // Fill array with some random "previous scores" for the task
+        for(int i = 0; i < scoreHistory.length; i++) {
+            scoreHistory[i] = (int)(Math.random() * 50);
+        }
+
+        // Bubble Sort Algorithm
+        for (int i = 0; i < scoreHistory.length - 1; i++) {
+            for (int j = 0; j < scoreHistory.length - i - 1; j++) {
+                if (scoreHistory[j] > scoreHistory[j + 1]) {
+                    // Swap
+                    int temp = scoreHistory[j];
+                    scoreHistory[j] = scoreHistory[j + 1];
+                    scoreHistory[j + 1] = temp;
+                }
+            }
+        }
+
+        // Advance Level
+        if (level < 3) {
+            level++;
+            // Reset only the game objects for the next level, 
+            // but do NOT call restartGame() because that resets level to 1.
+            score = 0;
+            timeLeft = 30;
+            ball.reset();
+            bomb.reset();
+        } else {
+            // Task Won after Level 3
+            gameWon = true;
+            timer.stop();
+            // Here you can decide if you want the music to stop at the VERY end
+            // stopMusic(); 
+        }
+    }
 
     @Override
     public void keyPressed(KeyEvent e) {
