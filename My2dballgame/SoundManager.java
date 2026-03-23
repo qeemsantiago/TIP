@@ -36,7 +36,10 @@ public class SoundManager {
 
     public void play() {
         if (clip != null) {
-            clip.setFramePosition(0); // Reset to beginning
+            // If it's already playing, don't reset it
+            if (clip.isRunning()) return; 
+            
+            clip.setFramePosition(0);
             clip.start();
         }
     }
