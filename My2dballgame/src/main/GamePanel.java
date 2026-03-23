@@ -1,6 +1,11 @@
 package main;
 
 import javax.swing.*;
+
+import objects.Ball;
+import objects.Bomb;
+import objects.Player;
+
 import java.awt.*;
 import java.awt.event.*;
 
@@ -18,21 +23,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
     boolean gameStarted = false; 
     boolean gameOver = false;
     boolean gameWon = false;
+ // Two separate managers so they don't fight for the same speaker
+    SoundManager music = new SoundManager();
+    SoundManager sfx = new SoundManager();
 
     public GamePanel() {
-        // Set the preferred size for pack() in GameFrame
         this.setPreferredSize(new Dimension(500, 400));
-        this.setBackground(new Color(28, 30, 34)); // Matches image_fedee4.png
+        this.setBackground(new Color(28, 30, 34));
         
         player = new Player(215, 350); 
         ball = new Ball();
         bomb = new Bomb();
-
+        
         timer = new Timer(15, this); 
         timer.start();
 
         this.setFocusable(true);
         this.addKeyListener(this);
+
+        // --- FIX 1: START MUSIC WHEN APP OPENS ---
+        playMusic(0); 
     }
 
     private void restartGame() {
@@ -46,8 +56,26 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         bomb.reset();
         player.leftPressed = false;
         player.rightPressed = false;
+        
+     // --- ADD THIS LINE TO RESTART MUSIC ---
+        playMusic(0);
         timer.start();
         repaint();
+    }
+
+    public void playMusic(int i) {
+        music.setFile(i); 
+        music.play();    
+        music.loop();    
+    }
+
+    public void stopMusic() {
+        music.stop(); 
+    }
+
+    public void playSE(int i) {
+        sfx.setFile(i); 
+        sfx.play();    
     }
 
     @Override
@@ -77,11 +105,18 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             drawCenteredString(g2, "Score: " + score, new Font("Segoe UI", Font.PLAIN, 24), Color.WHITE, 260);
             return;
         }
-
+        
         if (gameOver) {
+            // Large Red Title
             drawCenteredString(g2, "GAME OVER", new Font("Segoe UI", Font.BOLD, 52), new Color(231, 76, 60), 200);
+            
+            // The reason why they lost (White text)
             String reason = (timeLeft <= 0) ? "Time Ran Out!" : "You hit a bomb!";
             drawCenteredString(g2, reason, new Font("Segoe UI", Font.PLAIN, 20), Color.WHITE, 250);
+            
+            // The instruction to restart (Light Gray/Italic)
+            drawCenteredString(g2, "PRESS 'R' TO RETRY", new Font("Segoe UI", Font.ITALIC, 18), Color.LIGHT_GRAY, 310);
+            
             return;
         }
 
@@ -128,19 +163,29 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
             }
 
             if (timeLeft <= 0) {
-                if (score >= 20) gameWon = true;
-                else gameOver = true;
+                stopMusic(); // Stop music when time ends
+                if (score >= 20) {
+                    gameWon = true;
+                } else {
+                    gameOver = true;
+                    playSE(3); // Play Game Over sound
+                }
                 timer.stop();
             }
 
+         // CATCHING THE BALL
             if (ball.checkCollision(player)) {
                 score++;
                 ball.reset();
+                playSE(1); // Music keeps playing because this uses 'sfx' object
             }
 
+            // HITTING THE BOMB
             if (bomb.checkCollision(player)) {
                 gameOver = true;
                 timer.stop();
+                stopMusic(); // We stop music here because the game is over
+                playSE(2);   // Play explosion
             }
 
             if (ball.getY() > getHeight()) ball.reset();
@@ -148,6 +193,7 @@ public class GamePanel extends JPanel implements ActionListener, KeyListener {
         }
         repaint();
     }
+
 
     @Override
     public void keyPressed(KeyEvent e) {
